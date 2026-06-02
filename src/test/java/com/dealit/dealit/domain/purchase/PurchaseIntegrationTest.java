@@ -735,6 +735,13 @@ class PurchaseIntegrationTest {
 			.andExpect(jsonPath("$.reviewerId").value(buyer.getMemberId()))
 			.andExpect(jsonPath("$.revieweeId").value(seller.getMemberId()));
 
+		assertThat(notificationRepository.findAll())
+			.anySatisfy(notification -> {
+				assertThat(notification.getTitle()).isEqualTo("리뷰가 등록되었습니다.");
+				assertThat(notification.getTargetType()).isEqualTo("REVIEW");
+				assertThat(notification.getTargetUrl()).isEqualTo("/mypage/review");
+			});
+
 		mockMvc.perform(get("/api/v1/mypage/purchases")
 				.with(authentication(authenticatedMember(buyer))))
 			.andExpect(status().isOk())

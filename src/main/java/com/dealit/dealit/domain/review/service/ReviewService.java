@@ -6,6 +6,10 @@ import com.dealit.dealit.domain.auction.repository.AuctionRepository;
 import com.dealit.dealit.domain.auth.exception.InvalidCredentialsException;
 import com.dealit.dealit.domain.member.entity.Member;
 import com.dealit.dealit.domain.member.repository.MemberRepository;
+import com.dealit.dealit.domain.notification.dto.NotificationCreateRequest;
+import com.dealit.dealit.domain.notification.entity.InAppNotificationType;
+import com.dealit.dealit.domain.notification.service.FcmNotificationService;
+import com.dealit.dealit.domain.notification.service.NotificationCenterService;
 import com.dealit.dealit.domain.product.ProductSaleType;
 import com.dealit.dealit.domain.product.entity.Product;
 import com.dealit.dealit.domain.product.repository.ProductRepository;
@@ -28,6 +32,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -37,17 +42,21 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ReviewService {
 
 	private static final ZoneId SEOUL_ZONE = ZoneId.of("Asia/Seoul");
+	private static final String REVIEW_TARGET_TYPE = "REVIEW";
 
 	private final ReviewRepository reviewRepository;
 	private final ProductRepository productRepository;
 	private final AuctionRepository auctionRepository;
 	private final MemberRepository memberRepository;
 	private final PurchaseRepository purchaseRepository;
+	private final NotificationCenterService notificationCenterService;
+	private final FcmNotificationService fcmNotificationService;
 
 	@Transactional
 	public ReviewResponse createReview(Long reviewerId, CreateReviewRequest request) {
@@ -68,6 +77,7 @@ public class ReviewService {
 			request.rating().setScale(1, RoundingMode.UNNECESSARY),
 			request.content().trim()
 		));
+		notifyReviewReceived(review, target.product());
 
 		Map<Long, Member> membersById = loadMembersById(Set.of(review.getReviewerId(), review.getRevieweeId()));
 		Map<Long, Product> productsById = loadProductsById(Set.of(review.getProductId()));
@@ -157,6 +167,43 @@ public class ReviewService {
 			: reviewRepository.existsByReviewerIdAndAuctionIdAndDeletedAtIsNull(reviewerId, target.auctionId());
 		if (exists) {
 			throw new ResponseStatusException(HttpStatus.CONFLICT, "Review already exists.");
+		}
+	}
+
+	private void notifyReviewReceived(Review review, Product product) {
+		String title = "리뷰가 등록되었습니다.";
+		String content = "'" + product.getName() + "' 구매자가 거래 리뷰를 작성했어요.";
+		String targetUrl = "/mypage/review";
+
+		notificationCenterService.create(
+			review.getRevieweeId(),
+			new NotificationCreateRequest(
+				InAppNotificationType.TRADE,
+				title,
+				content,
+				REVIEW_TARGET_TYPE,
+				review.getReviewId(),
+				targetUrl
+			)
+		);
+
+		try {
+			int sentCount = fcmNotificationService.sendToMember(
+				review.getRevieweeId(),
+				title,
+				content,
+				Map.of(
+					"type", "REVIEW_RECEIVED",
+					"reviewId", String.valueOf(review.getReviewId()),
+					"productId", String.valueOf(review.getProductId()),
+					"targetUrl", targetUrl
+				)
+			);
+			log.debug("Sent review push notification. reviewId={}, revieweeId={}, sentCount={}",
+				review.getReviewId(), review.getRevieweeId(), sentCount);
+		} catch (RuntimeException exception) {
+			log.warn("Failed to send review push notification. reviewId={}, revieweeId={}",
+				review.getReviewId(), review.getRevieweeId(), exception);
 		}
 	}
 
