@@ -6,6 +6,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.dealit.dealit.domain.auction.repository.AuctionRepository;
+import com.dealit.dealit.domain.auction.AuctionStatus;
+import com.dealit.dealit.domain.auction.entity.Auction;
 import com.dealit.dealit.domain.product.ProductSaleType;
 import com.dealit.dealit.domain.product.ProductStatus;
 import com.dealit.dealit.domain.product.entity.Product;
@@ -99,6 +101,35 @@ class SearchIndexServiceTest {
 		verify(openSearchClient, org.mockito.Mockito.times(2)).indexIfVersionNotOlder(eq(document));
 	}
 
+	@Test
+	@DisplayName("낮은 searchVersion 경매 이벤트는 최신 경매 문서를 덮어쓰지 못한다")
+	void staleAuctionEventIsSkipped() {
+		Auction auction = createAuction(20L);
+		increaseAuctionSearchVersionTo(auction, 11L);
+		when(auctionRepository.findDetailByAuctionIdAndDeletedAtIsNullAndProductDeletedAtIsNull(20L))
+			.thenReturn(Optional.of(auction));
+
+		searchIndexService.indexAuction(20L, 10L);
+
+		verify(searchDocumentFactory, never()).auction(auction);
+		verify(openSearchClient, never()).indexIfVersionNotOlder(org.mockito.ArgumentMatchers.any(SearchDocument.class));
+	}
+
+	@Test
+	@DisplayName("현재 searchVersion 경매 이벤트는 OpenSearch에 version 비교 색인된다")
+	void currentAuctionEventIsIndexedWithVersionGuard() {
+		Auction auction = createAuction(20L);
+		increaseAuctionSearchVersionTo(auction, 11L);
+		SearchDocument document = auctionSearchDocument(20L, 11L);
+		when(auctionRepository.findDetailByAuctionIdAndDeletedAtIsNullAndProductDeletedAtIsNull(20L))
+			.thenReturn(Optional.of(auction));
+		when(searchDocumentFactory.auction(auction)).thenReturn(document);
+
+		searchIndexService.indexAuction(20L, 11L);
+
+		verify(openSearchClient).indexIfVersionNotOlder(document);
+	}
+
 	private Product createProduct(Long productId) {
 		Product product = Product.create(
 			"product",
@@ -116,9 +147,41 @@ class SearchIndexServiceTest {
 		return product;
 	}
 
+	private Auction createAuction(Long auctionId) {
+		Product product = Product.create(
+			"auction product",
+			"description",
+			ProductSaleType.AUCTION,
+			19L,
+			1L,
+			BigDecimal.valueOf(10000),
+			false,
+			"Seoul",
+			null,
+			ProductStatus.ON_SALE
+		);
+		ReflectionTestUtils.setField(product, "productId", 100L);
+		Auction auction = Auction.create(
+			product,
+			BigDecimal.valueOf(10000),
+			BigDecimal.valueOf(1000),
+			java.time.OffsetDateTime.parse("2026-06-20T00:00:00Z"),
+			java.time.OffsetDateTime.parse("2026-06-21T00:00:00Z"),
+			AuctionStatus.ONGOING
+		);
+		ReflectionTestUtils.setField(auction, "auctionId", auctionId);
+		return auction;
+	}
+
 	private void increaseSearchVersionTo(Product product, long targetVersion) {
 		while (product.getSearchVersion() < targetVersion) {
 			product.increaseSearchVersion();
+		}
+	}
+
+	private void increaseAuctionSearchVersionTo(Auction auction, long targetVersion) {
+		while (auction.getSearchVersion() < targetVersion) {
+			auction.increaseSearchVersion();
 		}
 	}
 
@@ -139,6 +202,31 @@ class SearchIndexServiceTest {
 			"Seoul",
 			ProductStatus.ON_SALE,
 			null,
+			null,
+			0L,
+			0L,
+			searchVersion,
+			null
+		);
+	}
+
+	private SearchDocument auctionSearchDocument(Long auctionId, long searchVersion) {
+		return new SearchDocument(
+			"AUCTION-" + auctionId,
+			SearchResultType.AUCTION,
+			100L,
+			auctionId,
+			"auction product",
+			"description",
+			null,
+			19L,
+			List.of(19L),
+			List.of("category"),
+			null,
+			BigDecimal.valueOf(10000),
+			"Seoul",
+			ProductStatus.ON_SALE,
+			AuctionStatus.ONGOING,
 			null,
 			0L,
 			0L,

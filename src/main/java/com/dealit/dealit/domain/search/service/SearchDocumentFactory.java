@@ -80,7 +80,7 @@ public class SearchDocumentFactory {
 			auction.getEndsAt(),
 			product.getViewCount(),
 			product.getFavoriteCount(),
-			product.getSearchVersion(),
+			auction.getSearchVersion(),
 			toSeoulOffsetDateTime(product.getCreatedAt())
 		);
 	}

@@ -77,6 +77,9 @@ public class Auction extends BaseEntity {
 	@Column(name = "status", nullable = false, length = 30)
 	private AuctionStatus status;
 
+	@Column(name = "search_version", nullable = false)
+	private long searchVersion = 1L;
+
 	private Auction(
 		Product product,
 		BigDecimal startPrice,
@@ -115,6 +118,10 @@ public class Auction extends BaseEntity {
 
 	public void updateCurrentPrice(BigDecimal currentPrice) {
 		this.currentPrice = currentPrice;
+	}
+
+	public long increaseSearchVersion() {
+		return ++this.searchVersion;
 	}
 
 	public BigDecimal getMinimumBidAmount() {

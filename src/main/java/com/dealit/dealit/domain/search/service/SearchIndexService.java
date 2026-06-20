@@ -47,6 +47,14 @@ public class SearchIndexService {
 			.ifPresentOrElse(this::indexAuctionIfSearchable, () -> deleteAuction(auctionId));
 	}
 
+	public void indexAuction(Long auctionId, long eventSearchVersion) {
+		auctionRepository.findDetailByAuctionIdAndDeletedAtIsNullAndProductDeletedAtIsNull(auctionId)
+			.ifPresentOrElse(
+				auction -> indexAuctionIfCurrent(auction, eventSearchVersion),
+				() -> deleteAuction(auctionId)
+			);
+	}
+
 	public void deleteAuction(Long auctionId) {
 		openSearchClient.delete("AUCTION-" + auctionId);
 	}
@@ -64,6 +72,10 @@ public class SearchIndexService {
 		if (product.getSearchVersion() > eventSearchVersion) {
 			return;
 		}
+		if (product.getSearchVersion() < eventSearchVersion) {
+			throw new IllegalStateException("Product search version is behind event version. productId=%d, current=%d, event=%d"
+				.formatted(product.getProductId(), product.getSearchVersion(), eventSearchVersion));
+		}
 		indexRegularProductIfSearchable(product);
 	}
 
@@ -74,5 +86,16 @@ public class SearchIndexService {
 		}
 		SearchDocument document = searchDocumentFactory.auction(auction);
 		openSearchClient.indexIfVersionNotOlder(document);
+	}
+
+	private void indexAuctionIfCurrent(Auction auction, long eventSearchVersion) {
+		if (auction.getSearchVersion() > eventSearchVersion) {
+			return;
+		}
+		if (auction.getSearchVersion() < eventSearchVersion) {
+			throw new IllegalStateException("Auction search version is behind event version. auctionId=%d, current=%d, event=%d"
+				.formatted(auction.getAuctionId(), auction.getSearchVersion(), eventSearchVersion));
+		}
+		indexAuctionIfSearchable(auction);
 	}
 }

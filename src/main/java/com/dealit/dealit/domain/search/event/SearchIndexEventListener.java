@@ -30,7 +30,7 @@ public class SearchIndexEventListener {
 	@Async("searchIndexTaskExecutor")
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
 	public void handle(AuctionSearchIndexRequestedEvent event) {
-		runSafely("auction index", event.auctionId(), () -> searchIndexService.indexAuction(event.auctionId()));
+		runSafely("auction index", event.auctionId(), () -> searchIndexService.indexAuction(event.auctionId(), event.searchVersion()));
 	}
 
 	@Async("searchIndexTaskExecutor")

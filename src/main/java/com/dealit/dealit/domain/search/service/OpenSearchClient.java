@@ -127,7 +127,7 @@ public class OpenSearchClient {
 			body.append(toJson(document)).append('\n');
 		}
 		String response = restClient.post()
-			.uri("/_bulk?refresh=true")
+			.uri("/_bulk")
 			.contentType(MediaType.parseMediaType(NDJSON_MEDIA_TYPE))
 			.body(toUtf8Bytes(body.toString()))
 			.retrieve()
@@ -140,7 +140,7 @@ public class OpenSearchClient {
 		ensureEnabled();
 		createIndexIfNeeded();
 		restClient.put()
-			.uri("/{index}/_doc/{id}?refresh=true", properties.getIndexName(), document.id())
+			.uri("/{index}/_doc/{id}", properties.getIndexName(), document.id())
 			.contentType(MediaType.APPLICATION_JSON)
 			.body(toUtf8Bytes(toJson(document)))
 			.retrieve()
@@ -167,7 +167,7 @@ public class OpenSearchClient {
 			"upsert", document
 		);
 		restClient.post()
-			.uri("/{index}/_update/{id}?refresh=true", properties.getIndexName(), document.id())
+			.uri("/{index}/_update/{id}", properties.getIndexName(), document.id())
 			.contentType(MediaType.APPLICATION_JSON)
 			.body(toUtf8Bytes(toJson(body)))
 			.retrieve()
@@ -178,7 +178,7 @@ public class OpenSearchClient {
 		ensureEnabled();
 		createIndexIfNeeded();
 		restClient.delete()
-			.uri("/{index}/_doc/{id}?refresh=true", properties.getIndexName(), documentId)
+			.uri("/{index}/_doc/{id}", properties.getIndexName(), documentId)
 			.exchange((request, response) -> null);
 	}
 
