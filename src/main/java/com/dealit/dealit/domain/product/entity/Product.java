@@ -80,6 +80,9 @@ public class Product extends BaseEntity {
 	@Column(name = "chat_count", nullable = false)
 	private long chatCount = 0L;
 
+	@Column(name = "search_version", nullable = false)
+	private long searchVersion = 1L;
+
 	@OneToMany(mappedBy = "product", cascade = CascadeType.ALL)
 	private final List<ProductImage> images = new ArrayList<>();
 
@@ -166,6 +169,10 @@ public class Product extends BaseEntity {
 
 	public void updateAllowOffer(boolean allowOffer) {
 		this.allowOffer = allowOffer;
+	}
+
+	public long increaseSearchVersion() {
+		return ++this.searchVersion;
 	}
 
 	public void markSold() {

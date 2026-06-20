@@ -279,7 +279,8 @@ public class ProductService {
 		);
 		product.updateAllowOffer(request.allowOffer());
 		replaceProductImages(product, request.images());
-		applicationEventPublisher.publishEvent(new ProductSearchIndexRequestedEvent(product.getProductId()));
+		long searchVersion = product.increaseSearchVersion();
+		applicationEventPublisher.publishEvent(new ProductSearchIndexRequestedEvent(product.getProductId(), searchVersion));
 
 		return getProductEditDetail(memberId, productId);
 	}
@@ -476,7 +477,7 @@ public class ProductService {
 			product.attachImage(image, imagePayload.sortOrder());
 		}
 		productImageRepository.saveAll(imagesById.values());
-		applicationEventPublisher.publishEvent(new ProductSearchIndexRequestedEvent(product.getProductId()));
+		applicationEventPublisher.publishEvent(new ProductSearchIndexRequestedEvent(product.getProductId(), product.getSearchVersion()));
 
 		return new CreateProductResponse(
 			product.getProductId(),

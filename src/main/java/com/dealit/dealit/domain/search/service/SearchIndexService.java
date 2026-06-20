@@ -7,6 +7,7 @@ import com.dealit.dealit.domain.product.ProductSaleType;
 import com.dealit.dealit.domain.product.ProductStatus;
 import com.dealit.dealit.domain.product.entity.Product;
 import com.dealit.dealit.domain.product.repository.ProductRepository;
+import com.dealit.dealit.domain.search.document.SearchDocument;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,14 @@ public class SearchIndexService {
 			.ifPresentOrElse(this::indexRegularProductIfSearchable, () -> deleteRegularProduct(productId));
 	}
 
+	public void indexRegularProduct(Long productId, long eventSearchVersion) {
+		productRepository.findByProductIdAndDeletedAtIsNull(productId)
+			.ifPresentOrElse(
+				product -> indexRegularProductIfCurrent(product, eventSearchVersion),
+				() -> deleteRegularProduct(productId)
+			);
+	}
+
 	public void deleteRegularProduct(Long productId) {
 		openSearchClient.delete("REGULAR-" + productId);
 	}
@@ -47,7 +56,15 @@ public class SearchIndexService {
 			deleteRegularProduct(product.getProductId());
 			return;
 		}
-		openSearchClient.index(searchDocumentFactory.regularProduct(product));
+		SearchDocument document = searchDocumentFactory.regularProduct(product);
+		openSearchClient.indexIfVersionNotOlder(document);
+	}
+
+	private void indexRegularProductIfCurrent(Product product, long eventSearchVersion) {
+		if (product.getSearchVersion() > eventSearchVersion) {
+			return;
+		}
+		indexRegularProductIfSearchable(product);
 	}
 
 	private void indexAuctionIfSearchable(Auction auction) {
@@ -55,6 +72,7 @@ public class SearchIndexService {
 			deleteAuction(auction.getAuctionId());
 			return;
 		}
-		openSearchClient.index(searchDocumentFactory.auction(auction));
+		SearchDocument document = searchDocumentFactory.auction(auction);
+		openSearchClient.indexIfVersionNotOlder(document);
 	}
 }

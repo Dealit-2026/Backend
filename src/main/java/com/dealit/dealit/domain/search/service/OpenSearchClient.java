@@ -147,6 +147,33 @@ public class OpenSearchClient {
 			.toBodilessEntity();
 	}
 
+	public void indexIfVersionNotOlder(SearchDocument document) {
+		ensureEnabled();
+		createIndexIfNeeded();
+		Map<String, Object> body = Map.of(
+			"scripted_upsert", true,
+			"script", Map.of(
+				"lang", "painless",
+				"source", """
+					if (ctx._source.searchVersion == null || ctx._source.searchVersion <= params.document.searchVersion) {
+					  ctx._source.clear();
+					  ctx._source.putAll(params.document);
+					} else {
+					  ctx.op = 'noop';
+					}
+					""",
+				"params", Map.of("document", document)
+			),
+			"upsert", document
+		);
+		restClient.post()
+			.uri("/{index}/_update/{id}?refresh=true", properties.getIndexName(), document.id())
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(toUtf8Bytes(toJson(body)))
+			.retrieve()
+			.toBodilessEntity();
+	}
+
 	public void delete(String documentId) {
 		ensureEnabled();
 		createIndexIfNeeded();
@@ -202,6 +229,7 @@ public class OpenSearchClient {
 					"type", Map.of("type", "keyword"),
 					"productStatus", Map.of("type", "keyword"),
 					"auctionStatus", Map.of("type", "keyword"),
+					"searchVersion", Map.of("type", "long"),
 					"createdAt", Map.of("type", "date")
 				)
 			)
