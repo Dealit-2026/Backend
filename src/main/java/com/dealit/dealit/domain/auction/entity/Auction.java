@@ -15,6 +15,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -38,6 +39,10 @@ public class Auction extends BaseEntity {
 	@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "auction_seq_generator")
 	@Column(name = "auction_id")
 	private Long auctionId;
+
+	@Version
+	@Column(name = "lock_version", nullable = false)
+	private long lockVersion;
 
 	@OneToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "product_id", nullable = false, unique = true)
