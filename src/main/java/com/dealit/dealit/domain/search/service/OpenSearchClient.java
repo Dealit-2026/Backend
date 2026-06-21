@@ -127,7 +127,7 @@ public class OpenSearchClient {
 			body.append(toJson(document)).append('\n');
 		}
 		String response = restClient.post()
-			.uri("/_bulk?refresh=true")
+			.uri("/_bulk")
 			.contentType(MediaType.parseMediaType(NDJSON_MEDIA_TYPE))
 			.body(toUtf8Bytes(body.toString()))
 			.retrieve()
@@ -140,9 +140,36 @@ public class OpenSearchClient {
 		ensureEnabled();
 		createIndexIfNeeded();
 		restClient.put()
-			.uri("/{index}/_doc/{id}?refresh=true", properties.getIndexName(), document.id())
+			.uri("/{index}/_doc/{id}", properties.getIndexName(), document.id())
 			.contentType(MediaType.APPLICATION_JSON)
 			.body(toUtf8Bytes(toJson(document)))
+			.retrieve()
+			.toBodilessEntity();
+	}
+
+	public void indexIfVersionNotOlder(SearchDocument document) {
+		ensureEnabled();
+		createIndexIfNeeded();
+		Map<String, Object> body = Map.of(
+			"scripted_upsert", true,
+			"script", Map.of(
+				"lang", "painless",
+				"source", """
+					if (ctx._source.searchVersion == null || ctx._source.searchVersion <= params.document.searchVersion) {
+					  ctx._source.clear();
+					  ctx._source.putAll(params.document);
+					} else {
+					  ctx.op = 'noop';
+					}
+					""",
+				"params", Map.of("document", document)
+			),
+			"upsert", document
+		);
+		restClient.post()
+			.uri("/{index}/_update/{id}", properties.getIndexName(), document.id())
+			.contentType(MediaType.APPLICATION_JSON)
+			.body(toUtf8Bytes(toJson(body)))
 			.retrieve()
 			.toBodilessEntity();
 	}
@@ -151,7 +178,7 @@ public class OpenSearchClient {
 		ensureEnabled();
 		createIndexIfNeeded();
 		restClient.delete()
-			.uri("/{index}/_doc/{id}?refresh=true", properties.getIndexName(), documentId)
+			.uri("/{index}/_doc/{id}", properties.getIndexName(), documentId)
 			.exchange((request, response) -> null);
 	}
 
@@ -202,6 +229,7 @@ public class OpenSearchClient {
 					"type", Map.of("type", "keyword"),
 					"productStatus", Map.of("type", "keyword"),
 					"auctionStatus", Map.of("type", "keyword"),
+					"searchVersion", Map.of("type", "long"),
 					"createdAt", Map.of("type", "date")
 				)
 			)

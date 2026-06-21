@@ -26,6 +26,7 @@ public record SearchDocument(
 	OffsetDateTime endsAt,
 	long viewCount,
 	long favoriteCount,
+	long searchVersion,
 	OffsetDateTime createdAt
 ) {
 }

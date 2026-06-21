@@ -221,7 +221,8 @@ public class AuctionBidService {
 						bidderCount,
 						serverTime
 					);
-					applicationEventPublisher.publishEvent(new AuctionSearchIndexRequestedEvent(auctionId));
+					long searchVersion = auction.increaseSearchVersion();
+					applicationEventPublisher.publishEvent(new AuctionSearchIndexRequestedEvent(auctionId, searchVersion));
 					return new BidResponse(auctionId, bidPrice, bidderId, serverTime, BidMessages.defaults());
 				} catch (RuntimeException exception) {
 					auctionRedisService.restoreBidState(auctionId, bidPrice, bidderId, result.previousPrice(), result.previousBidderId());

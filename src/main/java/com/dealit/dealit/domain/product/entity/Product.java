@@ -14,6 +14,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -38,6 +39,10 @@ public class Product extends BaseEntity {
 	@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "product_seq_generator")
 	@Column(name = "product_id")
 	private Long productId;
+
+	@Version
+	@Column(name = "lock_version", nullable = false)
+	private long lockVersion;
 
 	@Column(name = "name", nullable = false, length = 100)
 	private String name;
@@ -79,6 +84,9 @@ public class Product extends BaseEntity {
 
 	@Column(name = "chat_count", nullable = false)
 	private long chatCount = 0L;
+
+	@Column(name = "search_version", nullable = false)
+	private long searchVersion = 1L;
 
 	@OneToMany(mappedBy = "product", cascade = CascadeType.ALL)
 	private final List<ProductImage> images = new ArrayList<>();
@@ -166,6 +174,10 @@ public class Product extends BaseEntity {
 
 	public void updateAllowOffer(boolean allowOffer) {
 		this.allowOffer = allowOffer;
+	}
+
+	public long increaseSearchVersion() {
+		return ++this.searchVersion;
 	}
 
 	public void markSold() {

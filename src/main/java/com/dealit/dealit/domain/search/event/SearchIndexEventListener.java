@@ -18,7 +18,7 @@ public class SearchIndexEventListener {
 	@Async("searchIndexTaskExecutor")
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
 	public void handle(ProductSearchIndexRequestedEvent event) {
-		runSafely("product index", event.productId(), () -> searchIndexService.indexRegularProduct(event.productId()));
+		runSafely("product index", event.productId(), () -> searchIndexService.indexRegularProduct(event.productId(), event.searchVersion()));
 	}
 
 	@Async("searchIndexTaskExecutor")
@@ -30,7 +30,7 @@ public class SearchIndexEventListener {
 	@Async("searchIndexTaskExecutor")
 	@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
 	public void handle(AuctionSearchIndexRequestedEvent event) {
-		runSafely("auction index", event.auctionId(), () -> searchIndexService.indexAuction(event.auctionId()));
+		runSafely("auction index", event.auctionId(), () -> searchIndexService.indexAuction(event.auctionId(), event.searchVersion()));
 	}
 
 	@Async("searchIndexTaskExecutor")

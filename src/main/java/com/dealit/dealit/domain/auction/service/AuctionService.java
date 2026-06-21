@@ -360,7 +360,7 @@ public class AuctionService {
 		productImageRepository.saveAll(nextImages);
 
 		sourceAuction.markReauctioned(now);
-		applicationEventPublisher.publishEvent(new AuctionSearchIndexRequestedEvent(auction.getAuctionId()));
+		applicationEventPublisher.publishEvent(new AuctionSearchIndexRequestedEvent(auction.getAuctionId(), auction.getSearchVersion()));
 
 		return new ReauctionResponse(sourceAuction.getAuctionId(), product.getProductId(), auction.getAuctionId());
 	}
@@ -421,7 +421,8 @@ public class AuctionService {
 		auctionRedisService.refreshEnding(auction);
 
 		replaceAuctionImages(product, request.images());
-		applicationEventPublisher.publishEvent(new AuctionSearchIndexRequestedEvent(auction.getAuctionId()));
+		long searchVersion = auction.increaseSearchVersion();
+		applicationEventPublisher.publishEvent(new AuctionSearchIndexRequestedEvent(auction.getAuctionId(), searchVersion));
 
 		return getAuctionEditDetail(memberId, auctionId);
 	}
@@ -864,7 +865,7 @@ public class AuctionService {
 			product.attachImage(image, imagePayload.sortOrder());
 		}
 		productImageRepository.saveAll(imagesById.values());
-		applicationEventPublisher.publishEvent(new AuctionSearchIndexRequestedEvent(auction.getAuctionId()));
+		applicationEventPublisher.publishEvent(new AuctionSearchIndexRequestedEvent(auction.getAuctionId(), auction.getSearchVersion()));
 
 		return new CreateAuctionResponse(
 			product.getProductId(),
